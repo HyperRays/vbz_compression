@@ -26,3 +26,42 @@ add_test(
     COMMAND vbz_hdf_perf_test
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
+
+add_executable(vbz_fast5_perf
+    vbz_fast5_perf.cpp
+)
+add_sanitizers(vbz_fast5_perf)
+
+target_link_libraries(vbz_fast5_perf
+    PRIVATE
+        vbz
+        benchmark::benchmark
+        ${HDF5_C_LIBRARIES}
+        hdf_test_utils
+)
+
+target_include_directories(vbz_fast5_perf
+    PRIVATE
+        ${HDF5_INCLUDE_DIRS}
+)
+
+set_property(TARGET vbz_fast5_perf PROPERTY CXX_STANDARD 11)
+
+add_executable(vbz_fast5_throughput
+    vbz_fast5_throughput.cpp
+)
+add_sanitizers(vbz_fast5_throughput)
+
+target_link_libraries(vbz_fast5_throughput
+    PRIVATE
+        vbz
+        ${HDF5_C_LIBRARIES}
+        hdf_test_utils
+)
+
+target_include_directories(vbz_fast5_throughput
+    PRIVATE
+        ${HDF5_INCLUDE_DIRS}
+)
+
+set_property(TARGET vbz_fast5_throughput PROPERTY CXX_STANDARD 11)

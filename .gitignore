@@ -1,0 +1,42 @@
+# Build directories
+build/
+cmake-build-*/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CPackConfig.cmake
+CPackSourceConfig.cmake
+CTestTestfile.cmake
+compile_commands.json
+
+# Compiled binaries and libraries
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.o
+*.obj
+
+# Conan
+conanfile.txt
+conanbuildinfo.cmake
+conaninfo.txt
+.conan/
+
+# Test output
+*.h5
+test_file.h5
+Testing/
+
+# Profiling tool output
+*.ckpt
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
