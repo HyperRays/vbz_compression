@@ -205,6 +205,9 @@ int main(int argc, char** argv)
     std::signal(SIGTERM, on_signal);
     std::signal(SIGINT,  on_signal);
 
+    // Suppress HDF5 automatic error printing — we check return values ourselves.
+    H5Eset_auto2(H5E_DEFAULT, NULL, NULL);
+
     // ---- Parse arguments ---------------------------------------------------
     std::string fast5_dir, fast5_list, checkpoint_path, log_path;
     std::size_t checkpoint_interval = 100; // files between checkpoint writes
@@ -350,10 +353,10 @@ int main(int argc, char** argv)
                   << "\n--- Full run estimates (" << files.size() << " files) ---\n"
                   << "  Total data (uncompressed) : " << std::setprecision(1)
                                                       << est_total_bytes / 1e9 << " GB\n"
-                  << "  Estimated load time       : " << std::setprecision(0)
-                                                      << est_load_s / 60.0 << " min  (assumes ~1 GB/s disk)\n"
-                  << "  Estimated compress time   : " << est_total_s / 60.0 << " min\n"
-                  << "  Estimated total time      : " << (est_load_s + est_total_s) / 60.0 << " min\n"
+                  << "  Estimated load time       : " << std::setprecision(1)
+                                                      << est_load_s << " s  (assumes ~1 GB/s disk)\n"
+                  << "  Estimated compress time   : " << est_total_s << " s\n"
+                  << "  Estimated total time      : " << (est_load_s + est_total_s) << " s\n"
                   << "  Peak RAM needed           : ~" << std::setprecision(1)
                                                        << est_total_bytes / 1e9 << " GB\n";
         return 0;
