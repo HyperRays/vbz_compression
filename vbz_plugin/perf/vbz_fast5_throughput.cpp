@@ -270,7 +270,7 @@ int main(int argc, char** argv)
             << files_done << "\t" << total_files << "\t"
             << reads << "\t" << bytes_in << "\t" << bytes_out << "\t"
             << std::fixed << std::setprecision(4) << ratio << "\t"
-            << std::setprecision(3) << to_seconds(compress_ns) << "\t"
+            << std::setprecision(3) << compress_ns / 1e9 << "\t"
             << std::setprecision(1) << to_mbs(bytes_in, compress_ns) << "\t"
             << note << "\n";
         log.flush();
