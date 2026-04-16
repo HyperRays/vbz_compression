@@ -540,5 +540,117 @@ int main(int argc, char** argv)
             compress_reads, compress_bytes_in, compress_bytes_out,
             total_ns, "final");
 
+    // ---- Phase 3: Prepare compressed data for decompression benchmark -------
+    std::cerr << "\n[" << now_iso() << "] Phase 3: preparing compressed data...\n";
+
+    struct CompressedRead {
+        std::vector<char> data;
+        vbz_size_t original_bytes; // uncompressed size
+    };
+    std::vector<CompressedRead> compressed_reads_vec;
+    compressed_reads_vec.reserve(all_signals.size());
+
+    for (auto const& signal : all_signals) {
+        auto const byte_count = vbz_size_t(signal.size() * sizeof(int16_t));
+        dest.resize(dest.capacity());
+        auto csz = vbz_compress(
+            signal.data(), byte_count,
+            dest.data(), vbz_size_t(dest.size()),
+            &options);
+        if (!vbz_is_error(csz)) {
+            compressed_reads_vec.push_back({
+                std::vector<char>(dest.data(), dest.data() + csz),
+                byte_count
+            });
+        }
+    }
+
+    // Free uncompressed signals — no longer needed.
+    all_signals.clear();
+    all_signals.shrink_to_fit();
+
+    std::cerr << "[" << now_iso() << "] Prepared " << compressed_reads_vec.size()
+              << " compressed reads\n";
+
+    // Allocate decompression output buffer.
+    std::size_t max_original = 0;
+    for (auto const& cr : compressed_reads_vec)
+        max_original = std::max(max_original, std::size_t(cr.original_bytes));
+    std::vector<char> decomp_dest(max_original);
+
+    // ---- Phase 4: Timed decompression pass ----------------------------------
+    std::cerr << "[" << now_iso() << "] Phase 4: decompressing "
+              << compressed_reads_vec.size() << " reads...\n";
+
+    uint64_t decomp_reads    = 0;
+    uint64_t decomp_bytes_in = 0; // compressed bytes
+    uint64_t decomp_bytes_out = 0; // decompressed bytes
+
+    auto decomp_start = Clock::now();
+    last_log = decomp_start;
+
+    for (std::size_t ri = 0; ri < compressed_reads_vec.size(); ++ri) {
+        if (g_interrupted) {
+            double elapsed_ns = std::chrono::duration<double, std::nano>(
+                Clock::now() - decomp_start).count();
+            std::cerr << "[" << now_iso() << "] Interrupted during decompression at read "
+                      << ri << "/" << compressed_reads_vec.size() << ". Writing partial log.\n";
+            logline("decompress_interrupted", files.size(), files.size(),
+                    decomp_reads, decomp_bytes_out, decomp_bytes_in,
+                    elapsed_ns, "interrupted");
+            break;
+        }
+
+        auto const& cr = compressed_reads_vec[ri];
+        decomp_dest.resize(cr.original_bytes);
+
+        auto decompressed_size = vbz_decompress(
+            cr.data.data(), vbz_size_t(cr.data.size()),
+            decomp_dest.data(), vbz_size_t(decomp_dest.size()),
+            &options);
+
+        if (vbz_is_error(decompressed_size)) {
+            std::cerr << "WARNING: vbz_decompress error on read " << ri
+                      << ": " << vbz_error_string(decompressed_size) << "\n";
+            continue;
+        }
+
+        decomp_reads    += 1;
+        decomp_bytes_in += cr.data.size();
+        decomp_bytes_out += decompressed_size;
+
+        auto now = Clock::now();
+        double elapsed_s = std::chrono::duration<double>(now - last_log).count();
+        if (elapsed_s >= log_interval_s) {
+            double dtotal_ns = std::chrono::duration<double, std::nano>(
+                now - decomp_start).count();
+            double pct = 100.0 * double(ri + 1) / double(compressed_reads_vec.size());
+            std::cerr << "[" << now_iso() << "] Decompress: "
+                      << (ri + 1) << "/" << compressed_reads_vec.size()
+                      << " reads (" << std::fixed << std::setprecision(1) << pct << "%), "
+                      << std::setprecision(2) << double(decomp_bytes_out) / 1e9 << " GB out, "
+                      << std::setprecision(1) << to_mbs(decomp_bytes_out, dtotal_ns) << " MB/s\n";
+            logline("decompressing", files.size(), files.size(),
+                    decomp_reads, decomp_bytes_out, decomp_bytes_in, dtotal_ns);
+            last_log = now;
+        }
+    }
+
+    double dtotal_ns = std::chrono::duration<double, std::nano>(
+        Clock::now() - decomp_start).count();
+
+    std::cerr << "\n[" << now_iso() << "] === Decompression summary ===\n"
+              << "  Reads decompressed : " << decomp_reads << "\n"
+              << "  Compressed input   : " << std::fixed << std::setprecision(3)
+                                           << double(decomp_bytes_in)  / 1e9 << " GB\n"
+              << "  Decompressed output: " << double(decomp_bytes_out) / 1e9 << " GB\n"
+              << "  Elapsed            : " << std::setprecision(3) << dtotal_ns / 1e9 << " s\n"
+              << "  Throughput         : " << std::setprecision(1)
+                                           << to_mbs(decomp_bytes_out, dtotal_ns) << " MB/s\n";
+
+    logline("decompress_complete", files.size(), files.size(),
+            decomp_reads, decomp_bytes_out, decomp_bytes_in,
+            dtotal_ns, "final");
+
     return 0;
 }
