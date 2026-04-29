@@ -1,6 +1,5 @@
 #!/bin/bash
 #SBATCH --job-name=vbz_throughput
-#SBATCH --partition=bio_part
 #SBATCH --mem=100G
 #SBATCH --cpus-per-task=1
 #SBATCH --time=00:30:00
